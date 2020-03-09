@@ -32,7 +32,7 @@ import pframe_dataset_shared
 
 # Putting a .jpg in the extension means we can directly look at the results.
 # They are JPGs after all.
-EXTENSION = 'baseline.jpg'
+EXTENSION = 'baseline.bpg'
 
 
 def encoder(frame1, frame2):
@@ -41,9 +41,21 @@ def encoder(frame1, frame2):
     # Convert back to uint8
     residual_normalized = residual_normalized.astype(np.uint8)
     f = BytesIO()
-    Image.fromarray(residual_normalized).save(f, format='jpeg')
+    Image.fromarray(residual_normalized).save(f, format='png')
 
     return f.getvalue()
+#compress residual to bpg
+def compress_encoder(path, qp):   
+    os.chdir("/mnt/Volume0/test/bpg/libbpg-0.9.8")
+    print("\nturn to bpg")
+    for root, dirs, files in os.walk(path, topdown = False):
+        for name in files:
+            if '.png' in name:
+                str_path = os.path.join(root,name)
+                p2 = os.path.basename(str_path).replace('.png', EXTENSION)
+                p2 = os.path.join(root,p2)
+                os.system("./bpgenc -q {q} {path_en} -o {path_out}".format(q= qp, path_en = str_path, path_out = p2))
+
 
 
 def decoder(frame1, frame2_compressed: bytes):
@@ -59,12 +71,15 @@ def decode(p):
     """
     assert p.endswith('.' + EXTENSION)
     p2 = os.path.basename(p).replace('.' + EXTENSION, '.png')
+    p2p = os.path.join('/mnt/Volume0/test/clic2020-devkit/test_data/outt/', p2) #add by me
+    p2 = os.path.join('/mnt/Volume0/test/clic2020-devkit/test_data/inputs/', p2) #add by me
     p1 = pframe_dataset_shared.get_previous_frame_path(p2)
-    assert os.path.isfile(p1), (p2, p1, p, len(glob.glob('*.png')))
+    p1 = os.path.join('/mnt/Volume0/test/clic2020-devkit/test_data/inputs/', p1)
+    #assert os.path.isfile(p1), (p2, p1, p, len(glob.glob('*.png')))
     with open(p, 'rb') as f_in:
         b = f_in.read()
     f2_reconstructed = decoder(np.array(Image.open(p1)), b)
-    Image.fromarray(f2_reconstructed).save(p2)
+    Image.fromarray(f2_reconstructed).save(p2p)
 
 
 def compress_folder(data_dir, output_dir):
@@ -88,7 +103,7 @@ def compress_folder(data_dir, output_dir):
         assert os.path.basename(p2_expected) == os.path.basename(p2), (p1, p2)
         i1, i2 = np.array(Image.open(p1)), np.array(Image.open(p2))
 
-        p_out = os.path.join(output_dir, os.path.splitext(os.path.basename(p2))[0] + '.' + EXTENSION)
+        p_out = os.path.join(output_dir, os.path.splitext(os.path.basename(p2))[0] + '.' + 'png')
         with open(p_out, 'wb') as f_out:
             f_out.write(encoder(i1, i2))
 
@@ -109,6 +124,7 @@ def main():
 
     compress_folder(os.path.expanduser(flags.data_dir),
                     os.path.expanduser(flags.output_dir))
+    #compress_encoder('/mnt/Volume0/test/clic2020-devkit/test_data/outt',29)
 
 
 if __name__ == '__main__':

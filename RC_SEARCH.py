@@ -39,6 +39,7 @@ def summary_rc(array, idex):
     #total_RGB_size = 720*1280*2/3*12786
     bpp = np.sum([array[j][i][0] for i, j in enumerate(idex)])
     ms_ssim = np.mean([array[j][i][1] for i, j in enumerate(idex)])
+    print(ms_ssim)
     print("bpp : %lf, ms_ssim : %lf" % (bpp, ms_ssim))
     print("Model Index For Each Image : \n", idex)
 
@@ -91,8 +92,8 @@ def pulp_solver_low_BR(rc_arr, Max_bpp, psnr_flag=False):
     
     if psnr_flag == False:    
         prob += pulp.lpSum(ms_list), 'ms_ssim objective'
-        
-    prob += pulp.lpSum(bpp_list) <= int(38999000*6), 'Maximum bits requirement' 
+        #37,867,069 ssim 带index，不算增加 ； 38,147,824 量化+index，不算增加   38147760
+    prob += pulp.lpSum(bpp_list) <= 38147760 , 'Maximum bits requirement'  #38158892.7  38158793  38113151 //38,152,214 量化后的模型  37871300 SSIM
     prob.solve()
     index = interpreter_RC_results(prob.variables(), N_img)
     summary_rc(rc_arr, index)
@@ -108,7 +109,9 @@ if __name__=="__main__":
     # data_file4 = "calculate_post_processing3.npy"
     # data_file5 = "calculate_post_processing012.npy"
     # data_file6 = "calculate_post_processing345.npy"
-    data_file7 = "data.npy"
+    #data_file7 = "/mnt/Volume1/test/clic2020-devkit/data_tng2.npy"#with copy function data_tng2
+    
+    data_file7 = "/mnt/Volume1/test/clic2020-devkit/data_no_copy.npy"
 
     rc_arr = get_rc_arr([data_file7])  # data_file1, data_file2, data_file3, data_file4, 
 
@@ -126,4 +129,21 @@ if __name__=="__main__":
 
     ## Maximize MS-SSIM
     index = pulp_solver_low_BR(rc_arr, Max_bpp, psnr_flag=False)
-    np.save('/mnt/Volume0/test/clic2020-devkit/index.npy',index)
+    index = np.array(index,dtype="int8")
+    print(index.shape[0])
+    for i in range(index.shape[0]):
+        if index[i]>8 and index[i] <=16:
+            index[i] = 10 + index[i]-8
+        elif index[i]>16 and index[i] <=24:
+            index[i] = 20 + index[i]-16
+        elif index[i]>24 and index[i] <=32:
+            index[i] = 30 + index[i]-24
+        elif index[i]>32 and index[i] <=40:
+            index[i] = 40 + index[i]-32
+        # else:
+        #     print("fucked")
+        #     print(index[i])
+        
+        
+            
+    np.save('/mnt/Volume1/test/clic2020-devkit/index_no_copy.npy',index)
